@@ -9,7 +9,7 @@ class VaultTest < ActiveSupport::TestCase
   attr_reader :alias_name
   attr_reader :client_id
   attr_reader :client_secret
-  attr_reader :provider_started?
+
 
   setup do
     @client = Clients::Vault
@@ -117,7 +117,7 @@ class VaultTest < ActiveSupport::TestCase
     # create test user for oidc
     oidc_provider.logical.delete("/sys/auth/userpass")
     oidc_provider.logical.write("/sys/auth/userpass", type: "userpass")
-    oidc_provider.logical.write("/auth/userpass/users/#{TEST_USER[:name]", password: TEST_USER[:password])
+    oidc_provider.logical.write("/auth/userpass/users/#{TEST_USER[:name]}", password: TEST_USER[:password])
 
     # create oidc provider app
     oidc_provider.logical.write(WEBAPP_NAME,
@@ -143,7 +143,7 @@ class VaultTest < ActiveSupport::TestCase
                                disabled: false)
     provider = oidc_provider.logical.read(PROVIDER[:name])
 
-    op_entity = oidc_provider.logical.read("identity/entity/name/#{TEST_USER[:name]")
+    op_entity = oidc_provider.logical.read("identity/entity/name/#{TEST_USER[:name]}")
     op_entity_id = op_entity.data[:id]
     op_auth_list = oidc_provider.logical.read("/sys/auth")
     up_accessor = op_auth_list.data[:"userpass/"][:accessor]
@@ -195,7 +195,7 @@ class VaultTest < ActiveSupport::TestCase
     auth_list = vault_client.logical.read("/sys/auth")
     oidc_accessor = auth_list.data[:"oidc/"][:accessor]
     vault_client.logical.write("identity/entity-alias",
-                               name: {TEST_USER[:email]},
+                               name: TEST_USER[:email],
                                canonical_id: entity_id,
                                mount_accessor: oidc_accessor)
 
