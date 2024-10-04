@@ -27,4 +27,5 @@ module Clients
   require_relative "vault/policy"
   require_relative "vault/entity"
   require_relative "vault/entity_alias"
+  require_relative "vault/oidc"
 end

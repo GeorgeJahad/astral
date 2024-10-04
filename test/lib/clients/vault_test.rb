@@ -1,4 +1,4 @@
-#require "test_helper"
+require "test_helper"
 
 class VaultTest < ActiveSupport::TestCase
   attr_reader :intermediate_ca_mount
@@ -7,9 +7,6 @@ class VaultTest < ActiveSupport::TestCase
   attr_reader :policies
   attr_reader :entity_name
   attr_reader :alias_name
-  attr_reader :client_id
-  attr_reader :client_secret
-
 
   setup do
     @client = Clients::Vault
@@ -113,108 +110,7 @@ class VaultTest < ActiveSupport::TestCase
     assert_match /no such alias/, err.message
   end
 
-  def configure_oidc_provider
-    # create test user for oidc
-    oidc_provider.logical.delete("/sys/auth/userpass")
-    oidc_provider.logical.write("/sys/auth/userpass", type: "userpass")
-    oidc_provider.logical.write("/auth/userpass/users/#{TEST_USER[:name]}", password: TEST_USER[:password])
-
-    # create oidc provider app
-    oidc_provider.logical.write(WEBAPP_NAME,
-                               redirect_uris: "http://localhost:8250/oidc/callback",
-                               assignments: "allow_all")
-
-    app = oidc_provider.logical.read(WEBAPP_NAME)
-    @client_id = app.data[:client_id]
-    @client_secret = app.data[:client_secret]
-
-    # create email scope
-    oidc_provider.logical.write("identity/oidc/scope/email",
-                               template: '{"email": {{identity.entity.metadata.email}}}')
-
-    oidc_provider.logical.write(PROVIDER[:name],
-                               issuer: PROVIDER[:host],
-                               allowed_client_ids: @client_id,
-                               scopes_supported: "email")
-    oidc_provider.logical.write("identity/entity",
-                               policies: "default",
-                               name: TEST_USER[:name],
-                               metadata: "email=#{TEST_USER[:email]}",
-                               disabled: false)
-    provider = oidc_provider.logical.read(PROVIDER[:name])
-
-    op_entity = oidc_provider.logical.read("identity/entity/name/#{TEST_USER[:name]}")
-    op_entity_id = op_entity.data[:id]
-    op_auth_list = oidc_provider.logical.read("/sys/auth")
-    up_accessor = op_auth_list.data[:"userpass/"][:accessor]
-    oidc_provider.logical.write("identity/entity-alias",
-                               name: TEST_USER[:name],
-                               canonical_id: op_entity_id,
-                               mount_accessor: up_accessor)
-  end
-
-  def configure_oidc_client
-    #configure oidc client
-    vault_client.logical.delete("/sys/auth/oidc")
-    vault_client.logical.write("/sys/auth/oidc", type: "oidc")
-    vault_client.logical.write("auth/oidc/config",
-                               oidc_discovery_url: "#{PROVIDER[:host]}/v1/#{PROVIDER[:name]}",
-                               oidc_client_id: @client_id,
-                               oidc_client_secret: @client_secret,
-                               default_role: "reader")
-    policy = <<-EOH
-      path "sys" {
-      policy = "deny"
-    }
-    EOH
-    vault_client.sys.put_policy("reader", policy)
-    vault_client.logical.write("auth/oidc/role/reader",
-                               bound_audiences: @client_id,
-                               allowed_redirect_uris: "http://localhost:8200/ui/vault/auth/oidc/oidc/callback,http://localhost:8250/oidc/callback,http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback,http://127.0.0.1:8250/oidc/callback",
-                               user_claim: "email",
-                               oidc_scopes: "email",
-                               token_policies: "reader")
-  end
-
-  def test_oidc
-    configure_oidc_provider
-    configure_oidc_client
-    policy = <<-EOH
-      path "sys" {
-      policy = "deny"
-    }
-    EOH
-    vault_client.sys.put_policy("manager", policy)
-
-    vault_client.logical.write("identity/entity",
-                               policies: "manager",
-                               name: TEST_USER[:name],
-                               disabled: false)
-    entity = vault_client.logical.read("identity/entity/name/#{TEST_USER[:name]}")
-    entity_id = entity.data[:id]
-    auth_list = vault_client.logical.read("/sys/auth")
-    oidc_accessor = auth_list.data[:"oidc/"][:accessor]
-    vault_client.logical.write("identity/entity-alias",
-                               name: TEST_USER[:email],
-                               canonical_id: entity_id,
-                               mount_accessor: oidc_accessor)
-
-    puts "gbjdone"
-  end
-
   private
-  WEBAPP_NAME = "identity/oidc/client/my-webapp"
-  PROVIDER = {name: "identity/oidc/provider/my-provider",
-              host: "http://oidc_provider:8300",
-              token: "root_token"}
-  TEST_USER = {name: "test", password: "test", email: "test@example.com"}
-
-  def oidc_provider
-    ::Vault::Client.new(
-          address: PROVIDER[:host],
-          token: PROVIDER[:token]
-    )
-  end
 
   def vault_client
     ::Vault::Client.new(
