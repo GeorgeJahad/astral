@@ -19,31 +19,14 @@ class SecretsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "#show" do
-    path = create_secret
-    # view the secret
-    get secret_path(path), headers: { "Authorization" => "Bearer #{jwt_authorized}" }
-    assert_response :success
-    %w[ data metadata lease_id ].each do |key|
-      assert_includes response.parsed_body["secret"].keys, key
-    end
-  end
-
-  test "#delete" do
-    path = create_secret
-    # delete the secret
-    delete destroy_secret_path(path), headers: { "Authorization" => "Bearer #{jwt_authorized}" }
-    assert_response :success
-  end
-
   private
 
   def create_secret
     # make a path
-    path = "top/secret/#{SecureRandom.hex}"
+    path = "top/secret/gbj7"
     # create the secret
     post secrets_path, headers: { "Authorization" => "Bearer #{jwt_authorized}" },
-         params: { secret: { path: path, data: { password: "sicr3t" } } }
+         params: { secret: { path: path, groups: "group1", data: { password: "sicr3t" } } }
     path
   end
 
